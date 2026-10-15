@@ -1,0 +1,16 @@
+order_id,customer_id,product_id,order_date,quantity,unit_price,payment_status,order_status
+5001,101,201,2026-09-01,2,15000,paid,completed
+5002,102,202,2026-09-02,1,12000,PAID,completed
+5003,103,203,2026-09-03,1,85000,pending,processing
+5004,104,204,2026-09-04,3,18000,paid,completed
+5005,999,201,2026-09-05,1,15000,paid,completed
+5006,105,202,2026-09-06,-2,12000,paid,completed
+5007,106,203,2026-09-07,1,-85000,paid,completed
+5008,101,999,2026-09-08,1,10000,paid,completed
+5009,102,201,invalid-date,2,15000,paid,completed
+5009,102,201,2026-09-09,2,15000,paid,completed
+5010,103,204,2026-09-10,1,18000,refunded,cancelled
+5011,104,202,2026-09-11,2,12000,paid,completed
+5012,105,203,2026-09-12,1,85000,pending,processing
+5013,106,204,2026-09-13,2,18000,paid,completed
+5014,101,201,2026-09-14,1,15000,paid,completed

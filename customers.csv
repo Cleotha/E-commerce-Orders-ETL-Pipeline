@@ -1,0 +1,8 @@
+customer_id,customer_name,email,city
+101,Ada Okafor,ada@example.com,Lagos
+102,JOHN DOE,john@example.com	,Abuja
+103,Mariam Bello,mariam@example.com,Kano
+102,JOHN DOE,john@example.com,Abuja
+104,Peter James,,Ibadan
+105,Grace Obi,grace@example.com,lagos
+106,Samuel Ade, samuel@example.com,	Enugu

@@ -1,0 +1,33 @@
+
+[
+  {
+    "product_id": 201,
+    "product_name": "Wireless Mouse",
+    "category": "Electronics",
+    "unit_price": 15000
+  },
+  {
+    "product_id": 202,
+    "product_name": "USB Keyboard",
+    "category": "electronics",
+    "unit_price": 12000
+  },
+  {
+    "product_id": 203,
+    "product_name": "Office Chair",
+    "category": "Furniture",
+    "unit_price": 85000
+  },
+  {
+    "product_id": 204,
+    "product_name": "Laptop Stand",
+    "category": "Accessories",
+    "unit_price": 18000
+  },
+  {
+    "product_id": 202,
+    "product_name": "USB Keyboard",
+    "category": "Electronics",
+    "unit_price": 12000
+  }
+]
