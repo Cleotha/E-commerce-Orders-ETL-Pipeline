@@ -1,457 +1,313 @@
 # E-commerce Orders ETL Pipeline
 
-A Python and PostgreSQL data pipeline that extracts customer, product, and order data, cleans and validates the records, saves rejected records for inspection, and loads valid data into a relational database.
+A Python-based ETL pipeline that extracts e-commerce data from CSV and JSON files, cleans and validates the data, identifies invalid records, and loads valid records into PostgreSQL for business analysis.
 
-## Project objective
+The project demonstrates core data engineering concepts, including data ingestion, transformation, data quality validation, error handling, relational database design, automated testing, and analytical SQL.
 
-The purpose of this project is to demonstrate a complete junior-level data engineering workflow:
+## Project Overview
 
-```text
-Extract → Transform → Validate → Save errors → Load to PostgreSQL → Analyse with SQL
-```
+E-commerce businesses generate data about customers, products, and orders. Before this data can support reliable business decisions, it must be cleaned, validated, and stored in a structured database.
 
-The pipeline protects the database from invalid records while keeping rejected data available for review.
+This project automates that process by building an ETL pipeline that transforms raw customer, product, and order data into structured, analysis-ready tables in PostgreSQL.
 
-## Technologies used
+## Tech Stack
 
-- Python
-- Jupyter Notebook / Python scripts
-- Pandas
-- PostgreSQL
-- SQLAlchemy
-- Psycopg
-- Pytest
-- Python `logging`
-- CSV and JSON files
-- Git and GitHub
+- **Python** — ETL orchestration and data processing
+- **Pandas** — Data cleaning, transformation, and validation
+- **PostgreSQL** — Relational database storage
+- **SQLAlchemy** — Database connectivity and data loading
+- **pytest** — Automated unit testing
+- **Python Logging** — Pipeline execution and error monitoring
+- **python-dotenv** — Environment variable management
+- **Git and GitHub** — Version control and project management
 
-## Data sources
-
-The pipeline processes three datasets:
+## Architecture
 
 ```text
-customers.csv
-products.json
-orders.csv
+          Raw Data Sources
+                 |
+        +--------+--------+
+        |        |        |
+   customers   products  orders
+      .csv      .json     .csv
+        |        |        |
+        +--------+--------+
+                 |
+             Extraction
+                 |
+          Data Cleaning
+                 |
+          Data Validation
+                 |
+          +------+------+
+          |             |
+      Valid Data    Rejected Data
+          |             |
+          |        Error Reason
+          |             |
+          |       CSV Error Files
+          |
+     PostgreSQL
+          |
+   SQL Business Analysis
 ```
 
-The order data contains fields such as:
+## Project Structure
 
 ```text
-order_id
-customer_id
-product_id
-order_date
-quantity
-unit_price
-payment_status
-order_status
-```
-
-## Pipeline workflow
-
-### 1. Extract
-
-The Python pipeline reads the raw customer, product, and order files using Pandas. It logs the number of records extracted from each source.
-
-### 2. Clean and transform
-
-The pipeline:
-
-- replaces empty strings with missing values;
-- converts IDs and numeric fields to numeric types;
-- converts order dates to datetime values;
-- standardises customer names and cities;
-- converts emails to lowercase;
-- standardises payment and order statuses to lowercase;
-- removes duplicate product and order IDs according to the project rules;
-- calculates `total_amount` as:
-
-```python
-total_amount = quantity * unit_price
-```
-
-### 3. Validate
-
-The validation functions check:
-
-- duplicate customer, product, and order IDs;
-- missing required fields;
-- invalid quantities;
-- zero or negative prices;
-- invalid order dates;
-- customer IDs that do not exist;
-- product IDs that do not exist;
-- unsupported payment statuses;
-- unsupported order statuses.
-
-Each rejected record receives an `error_reason` column explaining why it failed validation.
-
-### 4. Save rejected records
-
-Rejected records are saved separately for inspection:
-
-```text
-data/errors/customer_errors.csv
-data/errors/product_errors.csv
-data/errors/order_errors.csv
-```
-
-The pipeline does not silently delete invalid records.
-
-### 5. Load valid records
-
-Validated customers, products, and orders are loaded into PostgreSQL tables using SQLAlchemy.
-
-## Database schema
-
-The database contains three related tables:
-
-- `customers`
-- `products`
-- `orders`
-
-The schema uses:
-
-- primary keys to identify records uniquely;
-- foreign keys to connect orders to customers and products;
-- `NOT NULL` constraints for required fields;
-- `CHECK` constraints to prevent zero or negative quantities and prices.
-
-### Schema SQL
-
-```sql
-CREATE TABLE IF NOT EXISTS customers (
-    customer_id INTEGER PRIMARY KEY,
-    customer_name VARCHAR(150) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    city VARCHAR(100) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS products (
-    product_id INTEGER PRIMARY KEY,
-    product_name VARCHAR(150) NOT NULL,
-    category VARCHAR(100) NOT NULL,
-    unit_price NUMERIC(12, 2) NOT NULL CHECK (unit_price > 0)
-);
-
-CREATE TABLE IF NOT EXISTS orders (
-    order_id INTEGER PRIMARY KEY,
-    customer_id INTEGER NOT NULL,
-    product_id INTEGER NOT NULL,
-    order_date DATE NOT NULL,
-    quantity INTEGER NOT NULL CHECK (quantity > 0),
-    unit_price NUMERIC(12, 2) NOT NULL CHECK (unit_price > 0),
-    payment_status VARCHAR(30) NOT NULL,
-    order_status VARCHAR(30) NOT NULL,
-
-    CONSTRAINT fk_order_customer
-        FOREIGN KEY (customer_id)
-        REFERENCES customers(customer_id),
-
-    CONSTRAINT fk_order_product
-        FOREIGN KEY (product_id)
-        REFERENCES products(product_id)
-);
-```
-
-## SQL reports
-
-The project includes reports for revenue, completed orders, products, customers, and unused products.
-
-### Total revenue from completed paid orders
-
-```sql
-SELECT
-    SUM(total_amount) AS total_revenue
-FROM orders
-WHERE payment_status = 'paid'
-  AND order_status = 'completed';
-```
-
-### Top three completed paid orders by value
-
-```sql
-SELECT
-    *
-FROM orders
-WHERE payment_status = 'paid'
-  AND order_status = 'completed'
-ORDER BY total_amount DESC
-LIMIT 3;
-```
-
-### Revenue by product
-
-```sql
-SELECT
-    o.product_id,
-    p.product_name,
-    SUM(o.total_amount) AS total_revenue
-FROM orders AS o
-INNER JOIN products AS p
-    ON o.product_id = p.product_id
-WHERE o.payment_status = 'paid'
-  AND o.order_status = 'completed'
-GROUP BY
-    o.product_id,
-    p.product_name
-ORDER BY total_revenue DESC;
-```
-
-### Number of completed paid orders
-
-```sql
-SELECT
-    COUNT(*) AS order_count
-FROM orders
-WHERE payment_status = 'paid'
-  AND order_status = 'completed';
-```
-
-### Customers with no completed paid order
-
-```sql
-SELECT
-    c.customer_id,
-    c.customer_name,
-    c.email,
-    c.city
-FROM customers AS c
-LEFT JOIN orders AS o
-    ON c.customer_id = o.customer_id
-   AND o.payment_status = 'paid'
-   AND o.order_status = 'completed'
-WHERE o.order_id IS NULL;
-```
-
-### Products that have never appeared in a completed paid order
-
-```sql
-SELECT
-    p.product_id,
-    p.product_name,
-    p.category,
-    p.unit_price
-FROM products AS p
-LEFT JOIN orders AS o
-    ON p.product_id = o.product_id
-   AND o.payment_status = 'paid'
-   AND o.order_status = 'completed'
-WHERE o.order_id IS NULL;
-```
-
-## Important database note about `total_amount`
-
-The reports use `total_amount`, but the `orders` table definition above does not create that column. Choose one of these approaches before running the reports.
-
-### Option 1: Add a generated column
-
-```sql
-ALTER TABLE orders
-ADD COLUMN total_amount NUMERIC(14, 2)
-GENERATED ALWAYS AS (quantity * unit_price) STORED;
-```
-
-### Option 2: Calculate it in each query
-
-```sql
-SELECT
-    SUM(quantity * unit_price) AS total_revenue
-FROM orders
-WHERE payment_status = 'paid'
-  AND order_status = 'completed';
-```
-
-The generated-column approach keeps `total_amount` available for all reports while ensuring that it is calculated from `quantity` and `unit_price`.
-
-## Testing with pytest
-
-Tests are stored in:
-
-```text
-tests/test_pipeline.py
-```
-
-The test suite checks:
-
-- customer text standardisation;
-- product duplicate handling;
-- order type conversion;
-- `total_amount` calculation;
-- duplicate customer validation;
-- missing customer validation;
-- invalid product prices;
-- unknown customer IDs;
-- unknown product IDs;
-- invalid dates and quantities;
-- valid orders being retained.
-
-Run the tests with:
-
-```bash
-pytest -v
-```
-
-The tests focus on cleaning and validation and do not require a PostgreSQL connection.
-
-## Logging
-
-The pipeline logs:
-
-- pipeline start and completion;
-- extraction counts;
-- cleaning counts;
-- valid and rejected record counts;
-- database connection attempts;
-- database loading failures.
-
-Logs are written to:
-
-```text
-pipeline.log
-```
-
-## Project structure
-
-```text
-ecommerce-orders-pipeline/
+E-commerce-Orders-ETL-Pipeline/
 │
-├── data/
-│   ├── raw/
-│   │   ├── customers.csv
-│   │   ├── products.json
-│   │   └── orders.csv
-│   └── errors/
-│       ├── customer_error.csv
-│       ├── product_error.csv
-│       └── order_error.csv
-│
-├── sql/
-│   ├── schema.sql
-│   └── reports.sql
-│
-├── tests/
-│   └── test_pipeline.py
-│
-├── pipeline.ipynb
+├── customers.csv
+├── products.json
+├── orders.csv
 ├── pipeline.py
+├── test_pipeline.py
 ├── requirements.txt
 ├── .env.example
 ├── .gitignore
+├── pipeline.log
+├── errors/
+│   ├── customer_error.csv
+│   ├── product_error.csv
+│   └── order_error.csv
 └── README.md
 ```
 
-## Installation
+*Note: The `errors/` directory and `pipeline.log` are generated or updated when the pipeline runs. Their presence depends on execution and repository configuration.*
 
-Clone the repository and enter the project directory:
+## ETL Workflow
 
-```bash
-git clone <your-github-repository-url>
-cd ecommerce-orders-pipeline
+### 1. Extract
+
+The pipeline reads data from three source files:
+
+- `customers.csv` — customer information
+- `products.json` — product details
+- `orders.csv` — customer purchase records
+
+Pandas is used to load the source files into DataFrames.
+
+### 2. Transform
+
+The pipeline prepares the data for validation and loading by:
+
+- Converting identifier and numeric columns to numeric types
+- Parsing order dates
+- Removing leading and trailing whitespace
+- Standardizing customer names, cities, and product names
+- Converting email addresses to lowercase
+- Normalizing payment and order statuses
+- Converting empty strings to missing values
+
+### 3. Validate
+
+The pipeline checks records for data quality issues.
+
+**Customer validation**
+- Missing customer IDs
+- Duplicate customer IDs
+- Missing customer names, emails, or cities
+
+**Product validation**
+- Missing product IDs or required fields
+- Duplicate product IDs
+- Missing, zero, or negative product prices
+
+**Order validation**
+- Duplicate order IDs
+- Missing or invalid order dates
+- Missing or unknown customer and product IDs
+- Missing, zero, or negative quantities
+- Missing, zero, or negative unit prices
+- Invalid payment statuses
+- Invalid order statuses
+
+Rejected records receive an `error_reason` field explaining the validation issue. Valid records continue to the loading stage.
+
+### 4. Load
+
+Valid customer, product, and order records are loaded into PostgreSQL using Pandas and SQLAlchemy.
+
+The database schema uses:
+
+- Primary keys to identify records
+- Foreign keys to maintain relationships between orders, customers, and products
+- `NOT NULL` constraints for required fields
+- `CHECK` constraints for positive prices and quantities
+- A generated `total_amount` column for order value calculation
+
+The current loading strategy uses append mode. Re-running the pipeline with existing primary keys may cause conflicts; safe, repeatable loading is a planned improvement.
+
+### 5. Error Handling and Logging
+
+The pipeline records execution messages using Python's `logging` module.
+
+Logs are written to:
+- The terminal
+- `pipeline.log`
+
+Rejected customer, product, and order records are exported to CSV files for inspection and correction.
+
+## Database Schema
+
+The pipeline uses three related PostgreSQL tables.
+
+| Table | Purpose |
+|---|---|
+| `customers` | Stores customer details |
+| `products` | Stores product information and unit prices |
+| `orders` | Stores order details and references customers and products |
+
+The `orders` table includes a generated `total_amount` column calculated as:
+
+```sql
+quantity * unit_price
 ```
 
-Create a virtual environment:
+This supports revenue and customer spending analysis.
+
+## Business Analysis
+
+The project includes SQL queries designed to answer practical business questions:
+
+1. **Total revenue:** What is the revenue from paid, completed orders?
+2. **Top customers:** Which three customers have spent the most on paid, completed orders?
+3. **Revenue by category:** Which product categories generate the most revenue?
+4. **Completed order count:** How many orders are both paid and completed?
+5. **Customers without orders:** Which customers have never placed an order?
+6. **Products without orders:** Which products have never been ordered?
+
+These queries demonstrate the use of joins, aggregation, filtering, grouping, sorting, and subpopulation analysis.
+
+## Getting Started
+
+### Prerequisites
+
+Install the following before running the project:
+
+- Python 3.10 or later
+- PostgreSQL
+- Git
+
+### 1. Clone the Repository
 
 ```bash
-python -m venv .venv
+git clone https://github.com/Cleotha/E-commerce-Orders-ETL-Pipeline.git
+cd E-commerce-Orders-ETL-Pipeline
 ```
 
-Activate it on macOS or Linux:
+### 2. Create a Virtual Environment
+
+**macOS/Linux**
 
 ```bash
+python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-Activate it on Windows:
+**Windows**
 
-```bash
-.venv\Scripts\activate
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
 ```
 
-Install the dependencies:
+### 3. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Recommended `requirements.txt`:
+Ensure `requirements.txt` includes the libraries used by the project, including Pandas, SQLAlchemy, the PostgreSQL driver, and python-dotenv. Include pytest if you want to run the tests.
 
-```text
-pandas
-sqlalchemy
-psycopg
-python-dotenv
-pytest
-jupyter
-pyarrow
-```
+### 4. Configure Environment Variables
 
-## Environment variables
+Create a `.env` file in the project root based on `.env.example`.
 
-Create a `.env` file in the project root:
+Example:
 
-```env
-DB_USER=postgres
-DB_PASSWORD=your_password
+```dotenv
+DB_USER=your_postgres_username
+DB_PASSWORD=your_postgres_password
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=ecommerce_db
 ```
 
-Never commit the real `.env` file to GitHub. Add it to `.gitignore` and use `.env.example` as a template.
+Replace the example values with your PostgreSQL credentials. Do not commit your real `.env` file or database passwords to GitHub.
 
-## Running the pipeline
+### 5. Create the Database and Tables
 
-If you are working in Jupyter, run the notebook cells in order:
+Create the database in PostgreSQL, then execute your SQL schema script to create the `customers`, `products`, and `orders` tables before running the pipeline.
 
-```text
-pipeline.ipynb
-```
+Make sure the tables and their constraints match the column names and data types in the source data.
 
-To export the notebook to a Python script:
-
-```bash
-python -m pip install nbconvert
-python -m nbconvert --to script pipeline.ipynb
-```
-
-Then run the exported script:
+### 6. Run the Pipeline
 
 ```bash
 python pipeline.py
 ```
 
-The bottom of `pipeline.py` should contain:
+The pipeline will extract the source data, clean and validate records, save rejected records, and load valid records into PostgreSQL.
 
-```python
-if __name__ == "__main__":
-    run_pipeline()
+Check the terminal output and `pipeline.log` for execution details.
+
+### 7. Run the Tests
+
+```bash
+pytest -v
 ```
 
-This prevents the full pipeline from running automatically when pytest imports the functions.
+The test suite covers data cleaning, data type conversions, validation rules, foreign-key checks, duplicate identifiers, invalid statuses, and rejected-record reasons.
 
-## Configuration and security
+Run the tests locally to confirm the current code passes before reporting test results.
 
-Database credentials are loaded from environment variables using `python-dotenv`. Credentials are not hardcoded in the Python code and the database password is not written to the logs.
+## Data Quality and Testing
 
-Example `.gitignore` entries:
+Data quality is a key component of this project. The pipeline separates invalid records from valid records rather than allowing all raw data to flow directly into the database.
 
-```text
-.env
-.venv/
-__pycache__/
-*.pyc
-pipeline.log
-errors/
-```
+The pytest suite uses sample DataFrames to test individual cleaning and validation functions. This helps detect regressions when pipeline logic changes.
 
-## Future improvements
+Future testing improvements include integration tests for PostgreSQL loading, error-file generation, and repeated pipeline execution.
 
-- Add database transactions around the complete load.
-- Use PostgreSQL upserts for safe reruns.
-- Add explicit primary-key and foreign-key creation to the loading process.
-- Add a data-quality summary report.
-- Add GitHub Actions to run pytest automatically.
-- Schedule the pipeline to run daily.
-- Add a dashboard for revenue and customer reports.
+## Current Limitations
+
+- Loading existing IDs again can trigger primary-key conflicts.
+- Database table creation is handled separately from the ETL script.
+- Error-file output paths should remain portable across operating systems.
+- The project currently uses local files as source data.
+- Automated continuous integration has not yet been configured.
+
+## Future Improvements
+
+- Implement idempotent database loading using PostgreSQL upserts.
+- Add transactional loading and stronger database failure recovery.
+- Add automated tests for database integration and repeat runs.
+- Configure GitHub Actions to run tests on every push and pull request.
+- Introduce Apache Airflow for workflow orchestration.
+- Containerize the application and database with Docker Compose.
+- Explore AWS services for cloud-based storage, processing, and deployment.
+- Add data quality metrics and pipeline monitoring.
+
+## Key Learning Outcomes
+
+Through this project, I practised:
+
+- Building an end-to-end ETL workflow with Python
+- Processing CSV and JSON datasets with Pandas
+- Cleaning and validating messy data
+- Tracking rejected records with explicit error reasons
+- Designing relational schemas and database constraints
+- Loading data into PostgreSQL using SQLAlchemy
+- Writing SQL queries for business reporting
+- Writing unit tests with pytest
+- Using logging to monitor pipeline execution
+- Managing configuration through environment variables
+
+## Author
+
+**Data Engineering Learner**
+
+GitHub: [Cleotha](https://github.com/Cleotha)
+
+This project is part of my practical journey toward building reliable, testable, and production-minded data pipelines.
