@@ -41,7 +41,6 @@ def clean_products(df):
     df["product_name"] = df["product_name"].str.strip().str.title()
     df["category"] = df["category"].str.strip().str.title()
     df["unit_price"] = pd.to_numeric(df["unit_price"],errors="coerce")
-    df = df.drop_duplicates(subset="product_id")
     logger.info("Cleaned products count: %s", len(df))
     return df
 def clean_orders(df):
@@ -52,8 +51,6 @@ def clean_orders(df):
     df["unit_price"] = pd.to_numeric(df["unit_price"],errors="coerce")
     df["payment_status"] = df["payment_status"].str.strip().str.lower()
     df["order_status"] = df["order_status"].str.strip().str.lower()
-    df = df.drop_duplicates(subset="order_id")
-    df["total_amount"] = df["quantity"] * df["unit_price"]
     logger.info("Cleaned orders count: %s", len(df))
     return df
 #Validating customers
@@ -198,9 +195,9 @@ def load_to_postgres(df, df1, df2):
         engine = create_engine(
             f"postgresql+psycopg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
         )
-        df.to_sql("customer", engine, if_exists="replace", index=False)
-        df1.to_sql("products", engine, if_exists="replace", index=False)
-        df2.to_sql("orders", engine, if_exists="replace", index=False)
+        df.to_sql("customers", engine, if_exists="append", index=False)
+        df1.to_sql("products", engine, if_exists="append", index=False)
+        df2.to_sql("orders", engine, if_exists="append", index=False)
         logger.info("Loaded %s customers into PostgreSQL.", len(df))
         logger.info("Loaded %s restaurants into PostgreSQL.", len(df1))
         logger.info("Loaded %s orders into PostgreSQL.", len(df2))
