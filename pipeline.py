@@ -172,7 +172,7 @@ def validate_orders(df, df1, df2):
 #save errors
 def save_errors(errors, filename):
     os.makedirs('errors', exist_ok=True)
-    output_path = os.path.join("/Users/Marydoris/Cleotha/E-commerce Orders ETL Pipeline", filename)
+    output_path = os.path.join("/Users/Marydoris/Cleotha/E-commerce Orders ETL Pipeline/errors", filename)
     errors.to_csv(output_path, index=False)
     logger.info("Saved %s errors to errors/%s", len(errors), output_path)
 
