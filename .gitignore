@@ -1,7 +1,6 @@
 # Environment variables and secrets
 .env
 .env.*
-errors/
 
 # Python virtual environments
 .venv/

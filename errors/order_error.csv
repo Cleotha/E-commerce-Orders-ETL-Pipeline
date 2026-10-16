@@ -1,0 +1,9 @@
+order_id,customer_id,product_id,order_date,quantity,unit_price,payment_status,order_status,total_amount,error_reason
+5004,104,204,2026-09-04,3,18000,paid,completed,54000,Customer ID does not exist
+5005,999,201,2026-09-05,1,15000,paid,completed,15000,Customer ID does not exist
+5006,105,202,2026-09-06,-2,12000,paid,completed,-24000,Quantity less than or equal to 0
+5007,106,203,2026-09-07,1,-85000,paid,completed,-85000,Unit_price less than 0
+5008,101,999,2026-09-08,1,10000,paid,completed,10000,Product ID does not exist
+5009,102,201,,2,15000,paid,completed,30000,Missing order date
+5009,102,201,2026-09-09,2,15000,paid,completed,30000,Duplicate order ID
+5011,104,202,2026-09-11,2,12000,paid,completed,24000,Customer ID does not exist
