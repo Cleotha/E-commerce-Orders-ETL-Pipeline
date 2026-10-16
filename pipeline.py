@@ -2,6 +2,8 @@ import logging
 import pandas as pd
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
+from sqlalchemy import create_engine, MetaData, Table
+from sqlalchemy.dialects.postgresql import insert
 import os
 #logging
 logging.basicConfig(
@@ -21,10 +23,6 @@ def extract_csv(filename):
 def extract_json(filename):
     data = pd.read_json(filename)
     logger.info("Restaurants count: %s", len(data))
-    return data
-def extract_csv(filename):
-    data = pd.read_csv(filename)
-    logger.info("Customers count: %s", len(data))
     return data
 #Transforming
 def clean_customers(df):
@@ -51,6 +49,7 @@ def clean_orders(df):
     df["unit_price"] = pd.to_numeric(df["unit_price"],errors="coerce")
     df["payment_status"] = df["payment_status"].str.strip().str.lower()
     df["order_status"] = df["order_status"].str.strip().str.lower()
+    df["total_amount"] = df["quantity"] * df["unit_price"]
     logger.info("Cleaned orders count: %s", len(df))
     return df
 #Validating customers
@@ -171,13 +170,14 @@ def validate_orders(df, df1, df2):
     return errors_df, valid_df
 
 #save errors
-
 def save_errors(errors, filename):
     os.makedirs('errors', exist_ok=True)
-    errors.to_csv(f'/Users/Marydoris/Cleotha/E-commerce Orders ETL Pipeline/{filename}', index=False)
-    logger.info("Saved %s errors to errors/%s", len(errors), filename)
+    output_path = os.path.join("/Users/Marydoris/Cleotha/E-commerce Orders ETL Pipeline", filename)
+    errors.to_csv(output_path, index=False)
+    logger.info("Saved %s errors to errors/%s", len(errors), output_path)
 
 #Load
+
 def load_to_postgres(df, df1, df2):
     load_dotenv(override=True)
     try:
@@ -195,11 +195,11 @@ def load_to_postgres(df, df1, df2):
         engine = create_engine(
             f"postgresql+psycopg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
         )
-        df.to_sql("customers", engine, if_exists="append", index=False)
-        df1.to_sql("products", engine, if_exists="append", index=False)
-        df2.to_sql("orders", engine, if_exists="append", index=False)
+        df.to_sql("customers", engine, if_exists="replace", index=False)
+        df1.to_sql("products", engine, if_exists="replace", index=False)
+        df2.to_sql("orders", engine, if_exists="replace", index=False)
         logger.info("Loaded %s customers into PostgreSQL.", len(df))
-        logger.info("Loaded %s restaurants into PostgreSQL.", len(df1))
+        logger.info("Loaded %s products into PostgreSQL.", len(df1))
         logger.info("Loaded %s orders into PostgreSQL.", len(df2))
     except Exception:
         logger.exception("Failed to connect to PostgreSQL.")

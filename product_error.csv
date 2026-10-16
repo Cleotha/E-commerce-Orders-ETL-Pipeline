@@ -1,1 +1,2 @@
 product_id,product_name,category,unit_price,error_reason
+202,Usb Keyboard,Electronics,12000,Duplicate product ID
